@@ -5,6 +5,15 @@ __pycache__/
 
 # C extensions
 *.so
+*.c
+*.o
+*.h
+*.json
+*.xml
+*.mat
+*.exe
+*.libs
+*.makefile
 
 # Distribution / packaging
 .Python
@@ -52,7 +61,6 @@ coverage.xml
 .pytest_cache/
 
 # Translations
-*.mo
 *.pot
 
 # Django stuff:
