@@ -2,6 +2,8 @@
 
 ## Deployment with Linux 
 
+Environment: Ubuntu 14.04.5 LTS
+
 ### Install OpenModelica
 
 Added the source
@@ -26,9 +28,45 @@ sudo apt-get update
 sudo apt-get install openmodelica
 ```
 
-### Install conda
+### Install and start conda
+Download using wget
+```
+wget -c https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+```
+Install the software
+```
+chmod 777 Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+```
+Start conda
+```
+cd ~/miniconda3/bin
+chmod 777 activate 
+. ./activate
+```
 
-### Install jupyter lab
+### Install and start jupyter lab
+
+Install jupyter-lab with conda
+```
+conda install -c conda-forge jupyterlab
+```
+Set-up jupyter-lab
+```
+jupyter notebook --generate-config
+nano /root/.jupyter/jupyter_notebook_config.py
+```
+1. c.NotebookApp.allow_remote_access = True
+2. c.NotebookApp.allow_root = True
+3. c.NotebookApp.ip = '*'
+4. c.NotebookApp.open_browser = False
+5. c.NotebookApp.password = "XXX" (jupyter lab password)
+6. c.NotebookApp.port = 3389
+   
+Start jupyter lab without hang up   
+```
+nohup jupyter lab > jupyter.log 2>&1 &
+```
 
 ### reference
 ```
