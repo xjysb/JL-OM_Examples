@@ -2,7 +2,7 @@
 
 ## Deployment with Linux 
 
-Environment: Ubuntu 14.04.5 LTS
+Environment: Ubuntu 18.04 LTS
 
 ### Install OpenModelica
 
@@ -26,6 +26,10 @@ Then update and install OpenModelica
 ```
 sudo apt-get update
 sudo apt-get install openmodelica
+```
+In the current release of OpenModelica(e.g. v1.17.0), you use apt to install libraries:
+```
+for PKG in `apt-cache search "omlib-.*" | cut -d" " -f1`; do sudo apt-get install -y "$PKG"; done # Installs optional Modelica libraries (most have not been tested with OpenModelica)
 ```
 
 ### Install and start conda
@@ -61,13 +65,37 @@ nano /root/.jupyter/jupyter_notebook_config.py
 3. c.NotebookApp.ip = '*'
 4. c.NotebookApp.open_browser = False
 5. c.NotebookApp.password = "XXX" (jupyter lab password)
-6. c.NotebookApp.port = 3389
+6. c.NotebookApp.port = 5976/8997
    
-Start jupyter lab without hang up   
+Start jupyter lab without hang up ('ps -aux | grep jupyter' and 'kill -9')
 ```
 nohup jupyter lab > jupyter.log 2>&1 &
 ```
 
+### Install and set-up git
+Install git
+```
+apt-get install git
+```
+Config name and email
+```
+git config --global user.name "XXX"
+git config --global user.email "XXX"
+```
+Add ssh key
+```
+ssh-keygen
+```
+
+### Others
+Install OMPython
+```
+python -m pip install -U https://github.com/OpenModelica/OMPython/archive/master.zip
+```
+Install matplotlib
+```
+python -m pip install matplotlib
+```
 ### reference
 ```
 https://www.openmodelica.org/forum/default-topic/1584-ubuntu-installiation
