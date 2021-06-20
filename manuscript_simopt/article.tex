@@ -1,0 +1,1041 @@
+\documentclass{article}
+\usepackage[UTF8]{ctex}
+\usepackage{cite}
+\usepackage{geometry}
+\usepackage{subfigure}
+\usepackage{amsmath,amsthm}
+\usepackage{amsfonts}
+\usepackage{bm}
+\usepackage{color}
+\usepackage{booktabs}
+\geometry{left=3.0cm, right=3.0cm, top=2.5cm, bottom=2.5cm}
+\newtheorem{remark}{注释} 
+
+\newtheorem{theorem}{定理}
+\newtheorem{lemma}{引理}
+\newtheorem{assumption}{假设}
+\title{基于性能分析的非线性动态系统仿真配置方法}
+\author{赵文帅，杨舒柏}
+
+\begin{document}
+\maketitle
+
+\abstract
+
+\textcolor{red}{
+\paragraph{待修改}
+实时仿真动态一般都进行定步长的仿真计算，在步长要求一定时，对于确定的系统，为了在规定的时间内完成仿真，满足仿真速度的要求，需要在保证要求的计算精度和使系统稳定的前提下，分析系统本身的特性是否满足仿真要求，并选择合适的求解器。
+本文针对该类问题，首先根据系统数值计算稳定性，给出了各类定步长仿真算法的稳定域，得到了仿真步长与系统特征值之间的关系；然后针对定步长仿真问题，在仿真时间限制下，通过分析各类定步长仿真算法的计算复杂度，给出了定步长仿真算法的计算量级关系，指导相应的算法选择。
+}
+
+\section{引言}
+\textcolor{red}{
+\paragraph{待修改}
+在实时仿真中，需要采用尽量大的步长。
+}
+
+\section{仿真性能分析}
+\label{sec:1_simprefanaly}
+\paragraph{基本概念}
+模拟时长，引出仿真平均步长；
+实耗时长，引出单位耗时和算法阶次；
+
+\paragraph{一个方程，两个约束}
+图示仿真性能分析核心思想，
+
+\subsection{时间代价方程}
+\subsection{稳定域约束}
+\subsection{精度约束}
+前一章所介绍的控制单元设计均是基于线性系统的描述，故仅适用于发动机的局部工况。
+对发动机的全工况范围而言，单一控制功能下仍需要考虑各个控制单元之间的协调。
+
+在航发控制系统设计中，增益调度技术\cite{Rugh2000Research,Leith2000Survey,Pakmehr2014Gain}一度被广泛地用于控制单元之间的协调。
+该技术的基本思路为：先基于非线性系统的一组局部线性模型，分别设计控制单元；再通过系统参数或参数组合调度这组控制单元，从而实现对整个非线性系统的控制。
+从工程实践角度来看，增益调度技术既简单又实用，然而在理论上却难以保证在所选线性模型以外工况下的系统性能和稳定性\cite{Shamma1991Gain}。
+除了增益调度技术，线性变参数（LPV）方法\cite{SHAMMA1993Gain,Kajiwara1999LPV,Lu2006LPV}也能用于控制单元之间的协调。
+该方法由增益调度技术发展而来，能够从理论上保证非线性系统在全工况范围内的稳定性和健壮性。
+现有的结合线性变参数系统的滑模研究主要集中于特定观测器的设计\cite{Chandra2017Fault,Hamdi2019Fault,Chen2018Sensor}，而与控制单元设计相关的文献则十分有限。
+
+以航发控制系统中的限制保护功能为例，本节采用基于线性变参数方法的滑模设计（也可称作“变增益滑模”）来协调各控制单元，并分析相应闭环系统的全局稳定性。
+第\ref{sec:5_lpvprobform}小节给出了问题描述，该描述采用包含不确定性的线性变参数模型来表示发动机的系统动态；第\ref{sec:5_lpvctrldesign}小节介绍了变增益滑模的设计过程，并给出相应的系统稳定性分析；第\ref{sec:5_lpvdesigninst}小节在CF6大涵道比涡扇发动机模型上对该设计方法进行了数字仿真验证。
+
+\subsection{问题描述}
+\label{sec:5_lpvprobform}
+
+全工况范围内的发动机系统动态可以表示为式~(\ref{eq:5_engnonlnrsys})。
+\begin{equation}
+\left \{
+\begin{aligned}
+   &\dot{\bm{x}}(t)=f\big ( \bm{x}(t), \bm{u}(t) \big )\\
+   &\bm{y}(t)=g\big ( \bm{x}(t), \bm{u}(t) \big )
+\end{aligned}
+\right .
+\label{eq:5_engnonlnrsys}
+\end{equation}
+其中，$\bm{x}(t)$表示系统状态，$\bm{u}(t)$和$\bm{y}(t)$分别表示系统输入和输出。
+函数$f(\cdot )$和$g(\cdot)$都是连续可微的非线性函数，分别用于描述系统的状态方程和输出方程。
+
+对于给定的指令信号$\bm{r}(t)$，控制目标是设计反馈控制使系统输出$\bm{y}(t)$在有限时间内跟踪$\bm{r}(t)$。
+对于任意合理的指令$\bm{r}$，都连续地存在唯一一组对应参数$(\bm{x}_e,\bm{u}_e)$使得式~(\ref{eq:5_equilibrium})成立。
+\begin{equation}
+\left \{
+\begin{aligned}
+   &f(\bm{x}_e,\bm{u}_e)=\dot{\bm{x}}_e=0\\
+   &g(\bm{x}_e,\bm{u}_e)=\bm{y}_e=\bm{r}
+\end{aligned}
+\right .
+\label{eq:5_equilibrium}
+\end{equation}
+其中，$\bm{x}_e$和$\bm{u}_e$是使发动机输出稳定跟踪指令时对应的系统状态和输入\cite{Pakmehr2014Gain}。
+
+为了获得发动机的线性变参数模型，首先需要确定发动机的一组稳定工况，不妨用平衡点簇$(\bm{\bar x}_{e,i},\bm{\bar u}_{e,i})$表示，其中$i \in \left \{ 1,2,...,m \right \}$。
+在该组中的每个工况下对系统~(\ref{eq:5_engnonlnrsys})进行线性化，可得相应的一簇线性模型。
+\begin{equation}
+\left \{
+\begin{aligned}
+   \dot{\bm{x}}(t)-\dot{\bm{\bar x}}_{e,i}&=\mathbf{A}_i\big ( \bm{x}(t)-\bm{\bar x}_{e,i} \big )+\mathbf{B}_i\big ( \bm{u}(t)-\bm{\bar u}_{e,i}\big )\\
+   \bm{y}(t)-\bm{\bar y}_{e,i}&=\mathbf{C}_i\big ( \bm{x}(t)-\bm{\bar x}_{e,i}\big )+\mathbf{D}_i\big (\bm{u}(t)-\bm{\bar u}_{e,i}\big )
+\end{aligned}
+\right .
+\label{eq:5_englnrsysgrp}
+\end{equation}
+其中，$\mathbf{A}_i$、$\mathbf{B}_i$、$\mathbf{C}_i$和$\mathbf{D}_i$表示第i个工况对应的状态空间系数矩阵。
+
+\begin{remark}
+\label{thm:4_remark_invertibleD}
+\cite{Richter2011multi,Richter2012Multiple}
+在高低选结构下，航发控制系统可以根据不同的控制功能划分成各个控制回路。
+一般来说，对稳态控制回路始终有$\mathbf{D}=0$，因为此时选定的被控参数是系统状态，比如风扇转速$\rm{NL}$。
+而对于温度或压力的限制保护回路来说，$\mathbf{D}$则是可逆的。
+不妨考虑限制参数是$T_{45}$（高压涡轮出口总温）或$P_3$（高压压气机出口总压）的情况。
+由发动机原理可知，无论是系统输入（燃油流量$\rm{WFE}$）还是系统状态（风扇转速$\rm{NL}$或高压转子转速$\rm{NH}$）的改变，都会造成参数$T_{45}$和$P_3$的改变。
+而由状态方程系数矩阵的定义可知，这两种限制回路所对应的$\mathbf{D}$都是非零的标量。
+本节考虑的正是限制保护问题，故假设矩阵$\mathbf{D}_i$可逆是合理的。
+\end{remark}
+
+基于式~(\ref{eq:5_englnrsysgrp})中的线性模型簇，系统~(\ref{eq:5_engnonlnrsys})的线性变参数模型可以写作：
+\begin{equation}
+\left \{
+\begin{aligned}
+  \delta \dot{\bm{x}}(t)&=\mathbf{A}(\alpha)\cdot \delta \bm{x}(t)+\mathbf{B}(\alpha)\cdot \delta \bm{u}(t)\\
+  \delta \bm{y}(t)&=\mathbf{C}(\alpha)\cdot\delta \bm{x}(t)+\mathbf{D}(\alpha)\cdot \delta \bm{u}(t)
+\end{aligned}
+\right .
+\label{eq:5_stdmdllpv}
+\end{equation}
+其中，
+\begin{equation}
+\begin{aligned}
+  \mathbf{A}(\alpha) &= \sum_{i=1}^{m}\mathbf{A}_{i}\cdot \beta_i(\alpha),\; \mathbf{B}(\alpha) = \sum_{i=1}^{m}\mathbf{B}_{i}\cdot \beta_i(\alpha),\\
+  \mathbf{C}(\alpha) &= \sum_{i=1}^{m}\mathbf{C}_{i}\cdot \beta_i(\alpha),\; \mathbf{D}(\alpha) = \sum_{i=1}^{m}\mathbf{D}_{i}\cdot \beta_i(\alpha),\\
+  \delta \bm{x}(t)&=\bm{x}(t)-\bm{x}_e(\alpha(t))=\bm{x}(t)-\sum_{i=1}^{m}\bm{x}_{e,i}\cdot \beta_i(\alpha),\\
+  \delta \bm{u}(t)&=\bm{u}(t)-\bm{u}_e(\alpha(t))=\bm{u}(t)-\sum_{i=1}^{m}\bm{u}_{e,i}\cdot \beta_i(\alpha),\\
+  \delta \bm{y}(t)&=\bm{y}(t)-\bm{y}_e(\alpha(t))=\bm{y}(t)-\sum_{i=1}^{m}\bm{y}_{e,i}\cdot \beta_i(\alpha).
+\label{eq:5_lpvfactors}
+\end{aligned}
+\end{equation}
+$\alpha(t)$是线性变参数模型中的调度参数。
+该参数既可以是单一系统参数，也可以是多个系统参数的组合。
+但无论按何种方式选取，调度参数都要能反映运行工况的特征，同时还能够被实时测量。
+$\beta_i(\alpha)$表示第$i$个工况的权重，需要满足式~(\ref{eq:5_lpvbeta})：
+\begin{equation}
+  \sum_{i=1}^{n}\beta_i(\alpha)=1,\;\forall \alpha\in\Omega
+\label{eq:5_lpvbeta}
+\end{equation}
+其中，$\Omega$是一个紧致集。
+
+若考虑系统~(\ref{eq:5_engnonlnrsys})与其线性变参数描述~(\ref{eq:5_stdmdllpv})之间的不匹配性，则可对描述~(\ref{eq:5_stdmdllpv})进行改进，即采用式~(\ref{eq:5_primemdllpv})作为系统~(\ref{eq:5_engnonlnrsys})的线性变参数描述。
+\begin{equation}
+\left \{
+\begin{aligned}
+  \delta \dot{\bm{x}}(t)&=\Big [\mathbf{A}(\alpha)+\Delta \mathbf{A}(t) \Big ] \delta \bm{x}(t)+\Big [\mathbf{B}(\alpha)+\Delta \mathbf{B}(t)\Big ] \delta \bm{u}(t)\\
+  \delta \bm{y}(t)&=\mathbf{C}(\alpha)\cdot\delta \bm{x}(t)+\mathbf{D}(\alpha)\cdot \delta \bm{u}(t)+\bm{\omega}(t)
+\end{aligned}
+\right .
+\label{eq:5_primemdllpv}
+\end{equation}
+其中$\Delta \mathbf{A}(t)$和$\Delta \mathbf{B}(t)$分别用于表示系统状态和输入的不匹配项，而$\bm{\omega}(t)$用于表示系统输出的不匹配项。
+此外，还需考虑以下关于不匹配项的假设。
+\begin{assumption}
+\label{thm:5_assumption_boundedw}
+$\bm{\omega}(t)$有界，且$\Delta \mathbf{A}(t)$和$\Delta \mathbf{B}(t)$满足式~(\ref{eq:5_assboundedw})。
+\begin{equation}
+\Big \| \mathbf{C}(\alpha)\Delta \mathbf{A}(t) \delta \bm{x}(t)+\mathbf{C}(\alpha)\Delta \mathbf{B}(t) \delta \bm{u}(t)\Big \|  < k_A,\;\forall t\geq 0
+\label{eq:5_assboundedw}
+\end{equation}
+其中$k_A$为常数。
+\end{assumption}
+
+线性变参数模型的基本假设是，调度参数$\alpha(t)$的改变足够缓慢，且由此造成的系统动态改变足够小\cite{Shamma1988Analysis}。
+据此可以考虑以下假设。
+\begin{assumption}
+\label{thm:5_assumption_varyslow}
+$\mathbf{C}(\alpha)\delta \bm{x} + \mathbf{D}(\alpha)\delta \bm{u}$的微分可以用$\mathbf{C}(\alpha)\delta \bm{ \dot x} + \mathbf{D}(\alpha)\delta \bm{ \dot u}$替代，如此替代而引入的误差是有界的，即
+\begin{equation}
+    \left \| \frac{\mathrm{d} \Big [\mathbf{C}(\alpha)\delta \bm{x}+\mathbf{D}(\alpha)\delta \bm{u}\Big ]}{\mathrm{d} t} - \Big [\mathbf{C}(\alpha)\delta \bm{\dot x}+\mathbf{D}(\alpha)\delta \bm{\dot u}\Big ] \right \| <k_B
+\label{eq:5_assvaryslow}
+\end{equation}
+其中$k_B$为常数。
+\end{assumption}
+
+\subsection{设计方法}
+\label{sec:5_lpvctrldesign}
+
+首先定义滑模函数。
+对于跟踪类控制问题，通常是将控制误差当作滑模函数，如式~(\ref{eq:5_smfunc})。
+\begin{equation}
+\bm{s}(t)=\delta \bm{y}(t) - \delta \bm{r}(t)
+\label{eq:5_smfunc}
+\end{equation}
+其中$\delta \bm{r}(t)=\bm{r}(t)-\bm{y}_e(\alpha)$。
+而当考虑到输出$\bm{y}(t)$中包含未知的不匹配项$\bm{\omega}(t)$时，则可以通过联立式~(\ref{eq:5_smfunc})和式~(\ref{eq:5_primemdllpv})定义一种不含未知项的理想滑模函数$\bm{\hat s}(t)$。
+\begin{equation}
+\begin{aligned}
+\bm{\hat s}(t) &= \bm{s}(t) - \bm{\omega}(t)\\
+&=\mathbf{C}(\alpha)\cdot \delta \bm{x}(t)+\mathbf{D}(\alpha)\cdot \delta \bm{u}(t)-\delta \bm{r}(t)
+\label{eq:5_smfuncideal}
+\end{aligned}
+\end{equation}
+由上式可知，当理想滑模函数$\bm{\hat s}(t)=0$时能够保证滑模函数$\bm{s}(t)$处于输出不匹配项$\bm{\omega}(t)$的边界带内，即$\|\bm{s}(t)\| \leq \sup \|\bm{\omega}(t)\|$。
+
+之后需要检验当系统~(\ref{eq:5_primemdllpv})处于滑模状态时的系统动态是否稳定。
+系统处于滑模状态时有$\bm{\hat s}(t)=0$，此时的等效控制输入为：
+\begin{equation}
+\delta \bm{u}_{\rm{eq}}(t)=\mathbf{D}^{-1}(\alpha)\cdot\Big [-\mathbf{C}(\alpha)\cdot\delta \bm{x}(t)+\delta \bm{r}(t)\Big ]
+\label{eq:5_equalctrl}
+\end{equation}
+将式~(\ref{eq:5_equalctrl})代入式~(\ref{eq:5_primemdllpv})可得：
+\begin{equation}
+   \delta \bm{\dot x}(t)=\Big [\mathbf{A}_{\rm{cls}}(\alpha)+\Delta \mathbf{A}_{\rm{cls}}(t)\Big ]\delta \bm{x}(t)+\mathbf{B}_{\rm{cls}}(t)\delta \bm{r}(t)
+\label{eq:5_sysonsldsurf}
+\end{equation}
+其中
+\begin{equation}
+\left \{
+\begin{aligned}
+&\mathbf{A}_{\rm{cls}}(\alpha)= \mathbf{A}(\alpha)-\mathbf{B}(\alpha)\mathbf{D}^{-1}(\alpha)\mathbf{C}(\alpha)\\
+&\Delta \mathbf{A}_{\rm{cls}}(t)= \Delta \mathbf{A}(t)-\Delta \mathbf{B}(t)\mathbf{D}^{-1}(\alpha)\mathbf{C}(\alpha) \\
+&\mathbf{B}_{\rm{cls}}(t)= \mathbf{B}(\alpha)\mathbf{D}^{-1}(\alpha)+\Delta \mathbf{B}(t)\mathbf{D}^{-1}(\alpha)
+\end{aligned}
+\right .
+\end{equation}
+
+\begin{remark}
+\label{thm:5_remark_equalonvertex}
+线性变参数系统可以看作一组线性模型组成的凸集。
+此凸集的第$i$个顶点即对应了第$i$个线性模型，换言之，如果$\alpha(t)=\alpha_i$，即有$\mathbf{A}(\alpha) = \mathbf{A}_{i}$，$\mathbf{B}(\alpha) = \mathbf{B}_{i}$，$\mathbf{C}(\alpha) = \mathbf{C}_{i}$和 $\mathbf{D}(\alpha)=\mathbf{D}_{i}$。
+除此之外，还有$\mathbf{A}_{\rm{cls}}(\alpha)=\mathbf{A}_{{\rm{cls}},i}=\mathbf{A}_i-\mathbf{B}_i\mathbf{D}_i^{-1}\mathbf{C}_i$。
+\end{remark}
+
+为了便于分析系统~(\ref{eq:5_primemdllpv})在滑模状态下的稳定性，需要考虑下述假设和引理。
+\begin{assumption}
+\label{thm:5_assumption_boundary}
+\cite{Pakmehr2014Gain}
+对所有的$t \geq 0$，范数$\|\mathbf{A}_{\rm{cls}}(\alpha)\|$和$\|\mathbf{B}_{\rm{cls}}(t)\|$都有界。
+\end{assumption}
+
+\begin{assumption}
+\label{thm:5_assumption_closeuncertainty}
+\cite{Wang1992Robust}
+表示系统状态不匹配项的矩阵$\Delta \mathbf{A}_{\rm{cls}}(t)$满足：
+\begin{equation}
+   \Delta  \mathbf{A}_{\rm{cls}}(t) = \mathbf{J} \cdot \mathbf{L}(t)\cdot \mathbf{H}
+\label{eq:5_assdeltaa}
+\end{equation}
+其中，$\mathbf{J}$和$\mathbf{H}$是已知的常数矩阵，而$\mathbf{L}(t)$是满足$\mathbf{L}^T(t)\mathbf{L}(t) \leq \bm{I}$的未知时变矩阵。
+\end{assumption}
+
+\begin{lemma}
+\label{thm:5_lemma_wangref8}
+\cite{Wang1992Robust}
+若矩阵$\mathbf{J}$，$\mathbf{H}$和$\mathbf{L}(t)$维数恰当，且$\mathbf{L}(t)$满足$\mathbf{L}^T(t)\mathbf{L}(t) \leq \bm{I}$，那么下列不等式对任意的$\epsilon>0$都成立。
+\begin{equation}
+   \mathbf{JL}(t)\mathbf{H}+\mathbf{H}^{T}\mathbf{L}^{T}(t)\mathbf{J}^{T} \leq \epsilon^{-1}\mathbf{JJ}^{T}+\epsilon \mathbf{H}^{T}\mathbf{H}
+\label{eq:5_lemmainequal}
+\end{equation}
+\end{lemma}
+
+以下定理能够给出保证系统~(\ref{eq:5_sysonsldsurf})稳定的充分条件。
+\begin{theorem}
+\label{thm:5_theorem_slidingstable}
+如果同时满足以下3个条件，那么系统~(\ref{eq:5_sysonsldsurf})是稳定的。
+\begin{enumerate}
+    \item 假设\ref{thm:5_assumption_boundary}和\ref{thm:5_assumption_closeuncertainty}成立
+    \item 对所有$\alpha \in \Omega$都有$\mathbf{A}_{\rm{cls}}(\alpha)\in Co\left\{\mathbf{A}_{{\rm{cls}},1},\mathbf{A}_{{\rm{cls}},2},...,\mathbf{A}_{{\rm{cls}},m}\right\}$
+    \item 存在正定对称矩阵$\mathbf{P}$满足式~(\ref{eq:5_postivedefinep})
+\begin{equation}
+\begin{bmatrix}
+ \mathbf{P} \mathbf{A}_{{\rm{cls}},i}+\mathbf{A}_{{\rm{cls}},i}^{T} \mathbf{P}+\epsilon \mathbf{H}^{T}\mathbf{H} \;\; & \mathbf{PJ} \\
+ * & - \epsilon \bm{I}
+\end{bmatrix}<0,\ i \in \{1,2,...,m\}
+\label{eq:5_postivedefinep}
+\end{equation}
+\end{enumerate}
+\proof
+由于范数$\|\mathbf{B}_{\rm{cls}}(t)\|$有界，系统~(\ref{eq:5_sysonsldsurf})的稳定性与其同构系统的稳定性相同。
+因此，仅需要考虑其同构系统的稳定性，即系统~(\ref{eq:5_sysonsldsurf})中$\delta \bm{r}(t)=0$时的情况即可。
+
+选择李雅普诺夫函数如下：
+\begin{equation}
+V_1(t)=\delta \bm{x}^{T}(t)\cdot \mathbf{P}\cdot \delta \bm{x}(t)
+\label{eq:5_thm1}
+\end{equation}
+根据式~(\ref{eq:5_sysonsldsurf})，$V_1(t)$的微分可以写作式~(\ref{eq:5_thm2})。
+\begin{equation}
+\begin{aligned}
+\dot V_1(t) =&\delta \bm{x}^{T}(t)\Big [\mathbf{A}_{\rm{cls}}^{T}(\alpha)\cdot \mathbf{P}+\mathbf{P}\cdot \mathbf{A}_{\rm{cls}}(\alpha)\Big ]\delta \bm{x}(t) \\
+&+\delta \bm{x}^{T}(t)\Big [\Delta \mathbf{A}_{\rm{cls}}^{T}(\alpha)\cdot \mathbf{P}+\mathbf{P}\cdot \Delta \mathbf{A}_{\rm{cls}}(\alpha)\Big ]\delta \bm{x}(t)
+\label{eq:5_thm2}
+\end{aligned}
+\end{equation}
+通过应用引理~\ref{thm:5_lemma_wangref8}可得：
+\begin{equation}
+\begin{aligned}
+\delta \bm{x}^{T}(t)\Big[\Delta \mathbf{A}_{\rm{cls}}^{T}(\alpha)\cdot \mathbf{P}+\mathbf{P} \cdot \Delta \mathbf{A}_{\rm{cls}}(\alpha)\Big ]\delta \bm{x}(t) \leq \delta \bm{x}^{T}(t)\Big [\epsilon^{-1} \mathbf{PJJ}^{T}\mathbf{P}+\epsilon \mathbf{H}^{T}\mathbf{H}\Big ]\delta \bm{x}(t)
+\label{eq:5_thm3}
+\end{aligned}
+\end{equation}
+将不等式~(\ref{eq:5_thm3})代入式~(\ref{eq:5_thm2})后有：
+\begin{equation}
+\begin{aligned}
+\dot V_1(t) \leq  \delta \bm{x}^{T}(t)\Big [\mathbf{A}_{\rm{cls}}^{T}(\alpha)\cdot \mathbf{P}+\mathbf{P}\cdot \mathbf{A}_{\rm{cls}}(\alpha)\Big ]\delta \bm{x}(t)
++\delta \bm{x}^{T}(t)\Big [\epsilon^{-1} \mathbf{PJJ}^{T}\mathbf{P}+\epsilon \mathbf{H}^{T}\mathbf{H}\Big ]\delta \bm{x}(t)
+\label{eq:5_thm4}
+\end{aligned}
+\end{equation}
+
+另一方面，对式~(\ref{eq:5_postivedefinep})应用舒尔补引理可得：
+\begin{equation}
+ \mathbf{P}\cdot \mathbf{A}_{{\rm{cls}},i}+\mathbf{A}_{{\rm{cls}},i}^{T}\cdot \mathbf{P}+ \epsilon^{-1}\mathbf{PJJ}^{T}\mathbf{P} + \epsilon \mathbf{H}^{T}\mathbf{H} < 0, \;i \in \{1,2,...,m\}
+\label{eq:5_thm5}
+\end{equation}
+将式~(\ref{eq:5_thm5})中不等式的两边同乘以$\kappa_i\in[0,1]$后有：
+\begin{equation}
+\left \{
+\begin{matrix}
+ \mathbf{P}(\kappa_1\cdot \mathbf{A}_{{\rm{cls}},1})+(\kappa_1\cdot \mathbf{A}_{{\rm{cls}},1}^{T})  \mathbf{P} \leq -\kappa_1 ( \epsilon^{-1}\mathbf{PJJ}^{T}\mathbf{P} + \epsilon \mathbf{H}^{T}\mathbf{H})\\
+ \mathbf{P}(\kappa_2\cdot \mathbf{A}_{{\rm{cls}},2})+(\kappa_2\cdot \mathbf{A}_{{\rm{cls}},2}^{T})  \mathbf{P} \leq -\kappa_2 ( \epsilon^{-1}\mathbf{PJJ}^{T}\mathbf{P} + \epsilon \mathbf{H}^{T}\mathbf{H})\\
+...\\
+ \mathbf{P}(\kappa_m\cdot \mathbf{A}_{{\rm{cls}},m})+(\kappa_m\cdot \mathbf{A}_{{\rm{cls}},m}^{T})  \mathbf{P} \leq -\kappa_m (\epsilon^{-1}\mathbf{PJJ}^{T}\mathbf{P} + \epsilon \mathbf{H}^{T}\mathbf{H})\\
+\end{matrix}
+\right .
+\label{eq:5_thm6}
+\end{equation}
+将式~(\ref{eq:5_thm6})中的所有不等式相加有：
+\begin{equation}
+\mathbf{P}\left(  \sum_{i=1}^{m}\kappa_i\cdot \mathbf{A}_{{\rm{cls}},i} \right)+\left(  \sum_{i=1}^{m}\kappa_i\cdot \mathbf{A}_{{\rm{cls}},i} \right)^{T}\mathbf{P}\leq -\left(\sum_{i=1}^{m}\kappa_i \right)\mathbf{Q}
+\label{eq:5_thm7}
+\end{equation}
+其中$\mathbf{Q} = \epsilon^{-1}\mathbf{PJJ}^{T}\mathbf{P} + \epsilon \mathbf{H}^{T}\mathbf{H}$。
+
+对所有$\alpha\in\Omega$都有$\mathbf{A}_{\rm{cls}}(\alpha)\in Co\left\{\mathbf{A}_{{\rm{cls}},1},\mathbf{A}_{{\rm{cls}},2},...,\mathbf{A}_{{\rm{cls}},m}\right\}$，故可以令$\mathbf{A}_{\rm{cls}}(\alpha)=\sum_{i=1}^{m}\kappa_i\cdot \mathbf{A}_{{\rm{cls}},i}$且$\sum_{i=1}^{m}\kappa_i=1$，进而得到：
+\begin{equation}
+\mathbf{P}\cdot \mathbf{A}_{\rm{cls}}(\alpha)+\mathbf{A}_{\rm{cls}}^{T}(\alpha)\cdot \mathbf{P} + \epsilon^{-1}\mathbf{PJJ}^{T}\mathbf{P} + \epsilon \mathbf{H}^{T}\mathbf{H}\leq 0
+\label{eq:5_thm8}
+\end{equation}
+
+将不等式~(\ref{eq:5_thm8})代入式~(\ref{eq:5_thm4})后有$\dot V_1(t) \leq 0$。
+至此得证，系统~(\ref{eq:5_sysonsldsurf})是稳定的。
+\qed
+\end{theorem}
+
+\begin{remark}
+矩阵$\mathbf{P}$的存在性是定理\ref{thm:5_theorem_slidingstable}成立的先决条件，对保证系统~(\ref{eq:5_sysonsldsurf})的稳定至关重要。
+所幸，航空发动机系统都具有自稳定的特点，即$\mathbf{A}_{{\rm{cls}},i}$的特征根实部均为负。
+因此，在应用中通过调整$\epsilon$求出一个可行的$\mathbf{P}$使式~(\ref{eq:5_postivedefinep})成立并不困难。
+\end{remark}
+
+在确认所选滑模函数合适后，下一步即是设计相应的控制律。
+所设计控制律应当能够保证，即使存在系统状态、输入和输出的不匹配项，系统状态轨迹仍然能被吸引至滑模面上。
+
+从工程角度出发，为了消除因不同控制回路切换而造成的控制输入跳变，控制律设计时倾向于采用增量式（而非位置式）设计，即控制律所求并非控制输入，而是其在单位时间内的增量。
+为系统~(\ref{eq:5_primemdllpv})所设计的滑模控制律见式~(\ref{eq:5_lpvctrllaws})。
+\begin{equation}
+\delta \bm{\dot{u}}(t)=-\xi_1 \rho(t) \cdot\frac{\mathbf{D}^{-1}(\alpha)\cdot \bm{\hat s}(t)}{\left \| \bm{\hat s}(t) \right \|}-\xi_2 \mathbf{D}^{-1}(\alpha)\cdot \bm{\hat s}(t)
+\label{eq:5_lpvctrllaws}
+\end{equation}
+其中$\xi_1 >1$，$\xi_2 >0$，且：
+\begin{equation}
+   \rho(t) = \Big \|\mathbf{C}(\alpha)\mathbf{A}(\alpha)\delta \bm{x}(t)+\mathbf{C}(\alpha)\mathbf{B}(\alpha)\delta \bm{u}(t)\Big \| + k_A+ k_B
+\end{equation}
+
+以下定理能够确保，在有限时间内，从全局任意初始位置，式~(\ref{eq:5_lpvctrllaws})中的滑模控制律可使系统状态轨迹被吸引至滑模面上。
+\begin{theorem}
+考虑动态系统~(\ref{eq:5_primemdllpv})以及式~(\ref{eq:5_smfuncideal})中的滑模函数。
+在假设\ref{thm:5_assumption_boundedw}和\ref{thm:5_assumption_varyslow}成立的情况下，如果采用式~(\ref{eq:5_lpvctrllaws})中的滑模控制律，那么系统状态轨迹能够在有限时间内全局收敛至滑模面$\bm{\hat s}(t)=0$上。
+\proof
+选择式~(\ref{eq:5_thm2_1})中的李雅普诺夫函数。
+\begin{equation}
+V_2(t)=\frac{1}{2}\bm{\hat s}^{T}(t)\cdot \bm{\hat s}(t)
+\label{eq:5_thm2_1}
+\end{equation}
+根据式~(\ref{eq:5_smfuncideal})，$V_2(t)$的微分可以写作式~(\ref{eq:5_thm2_2})。
+\begin{equation}
+\begin{aligned}
+\dot V_2=&\bm{\hat s}^{T}\cdot \Big \{ \big [ \mathbf{C}(\alpha)\delta \bm{\dot x}+\mathbf{D}(\alpha)\delta \bm{\dot u} \big ]+\frac{\mathrm{d} \big [\mathbf{C}(\alpha)\delta \bm{x}+\mathbf{D}(\alpha)\delta \bm{u} \big ]}{\mathrm{d} t}- \big [\mathbf{C}(\alpha)\delta \bm{\dot x}+D(\alpha)\delta \bm{\dot u} \big ]\Big \} \\
+=&\bm{\hat s}^{T}\cdot \Big \{  \mathbf{C}(\alpha)\mathbf{A}(\alpha)\delta \bm{x}+\mathbf{C}(\alpha)\mathbf{B}(\alpha)\delta \bm{u}+\mathbf{C}(\alpha)\Delta \mathbf{A}(t)\delta \bm{x}+\mathbf{C}(\alpha)\Delta \mathbf{B}(t)\delta \bm{u}+\mathbf{D}(\alpha)\delta \bm{\dot u}\\
+&+\frac{\mathrm{d} \big [\mathbf{C}(\alpha)\delta \bm{x}+\mathbf{D}(\alpha)\delta \bm{u}\big ]}{\mathrm{d} t}- \big [\mathbf{C}(\alpha)\delta \bm{\dot x}+\mathbf{D}(\alpha)\delta \bm{\dot u}\big ] \Big \}
+\label{eq:5_thm2_2}
+\end{aligned}
+\end{equation}
+当假设\ref{thm:5_assumption_boundedw}和\ref{thm:5_assumption_varyslow}成立时会有：
+\begin{equation}
+\begin{aligned}
+\dot V_2\leq& \Big \| \bm{\hat s} \Big \| \cdot \Big \{ \Big \|\mathbf{C}(\alpha)\mathbf{A}(\alpha)\delta \bm{x}+\mathbf{C}(\alpha)\mathbf{B}(\alpha)\delta \bm{u}\Big \| + k_A +k_B \Big \} +\bm{\hat s}^{T}\cdot \mathbf{D}(\alpha)\delta \bm{\dot{u}}\\
+= & \left \| \bm{\hat s} \right \|\cdot\rho(t)+\bm{\hat s}^{T}\cdot \mathbf{D}(\alpha)\delta \bm{\dot{u}}
+\label{eq:5_thm2_3}
+\end{aligned}
+\end{equation}
+将式~(\ref{eq:5_lpvctrllaws})中的滑模控制律代入不等式~(\ref{eq:5_thm2_3})可得：
+\begin{equation}
+\begin{aligned}
+\dot V_2\leq& \rho(t) \left \| \bm{\hat s} \right \|-\xi_1\cdot \rho (t)\left \| \bm{\hat s} \right \| -\xi_2\cdot\bm{\hat s}^{T}\bm{\hat s}\\
+= &(1 - \xi_1)\cdot \rho(t)\left \| \bm{\hat s} \right \| -\xi_2\cdot\left \| \bm{\hat s} \right \|^{2}<0 \quad 
+\label{eq:5_thm2_4}
+\end{aligned}
+\end{equation}
+
+由此得证，式~(\ref{eq:5_lpvctrllaws})中的滑模控制律能够确保系统状态轨迹在有限时间内收敛至式~(\ref{eq:5_smfuncideal})中的滑模面上。
+\qed
+\end{theorem}
+
+\subsection{设计实例及仿真结果}
+\label{sec:5_lpvdesigninst}
+
+\begin{table}[t]
+\caption{CF6发动机设计点参数：地面最大状态(高度0，马赫数0)}
+\begin{center}
+\label{tab:5_lpvnominalpara}
+\begin{tabular}{c l l l}
+& & \\ % put some space after the caption
+\hline
+参数名 & 设计值 & 单位 &  限制 \\
+\hline
+WFE  & 2.4912  & kg/s & -  \\
+NL & 3,390  & rpm&-  \\
+NH & 10,300  & rpm&-  \\
+ $T_{45}$ & 1,084 &K&  $\leq 1,240$ \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+不失一般性，本小节以温度限制保护为例开展设计工作，随后对该设计进行仿真研究。
+考虑大涵道比涡扇发动机模型的2个系统状态（高、低压转子转速），1个输入（燃油流量）和1个输出（高压涡轮出口温度）。
+以上参数均以表~\ref{tab:5_lpvnominalpara}中的设计值为参照进行无量纲处理：控制输入$\bm{u}(t)$是归一化的燃油流量；输出$\bm{y}(t)$是归一化的高压涡轮出口总温；系统状态$\bm{x}_1(t)$、$\bm{x}_2(t)$分别是归一化的风扇转速、核心机转速。
+
+为了触发温度限制保护，特意选择在热天环境下（ISA+30$^{\circ}$C）海平面处起飞的仿真场景（发动机从慢车状态加速至最大状态）。
+在此大气环境下，在慢车状态到最大状态之间选取8个稳态工况对发动机非线性模型进行线性化，各工况点处的系统稳态值和状态空间矩阵如下：
+
+稳态点 1 （最大状态）
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,1}=1.1019,\bm{x}_{e,1}=[1.0619\;1.0565]^{T}, \bm{y}_{e,1} =1.1096 \\
+\mathbf{A}_1=
+\begin{bmatrix}
+-8.7360 & 3.8648\\
+-0.6280 & -1.9888
+\end{bmatrix},
+\mathbf{B}_1=
+\begin{bmatrix}
+ 1.9262 \\
+ 0.5161
+\end{bmatrix},\\
+\mathbf{C}_1 = [-0.5189\;\;0.0148],\mathbf{D}_1 = 0.4707.
+\end{matrix}
+\end{equation}
+
+稳态点 2
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,2}= 0.9233,\bm{x}_{e,2}=[0.9926\;1.0274]^{T},\bm{y}_{e,2} = 1.0632\\
+\mathbf{A}_2=
+\begin{bmatrix}
+-6.4204 & 2.4062\\
+-0.7729 & -0.7280
+\end{bmatrix},
+\mathbf{B}_2=
+\begin{bmatrix}
+ 2.1649 \\
+ 0.4858
+\end{bmatrix},\\
+\mathbf{C}_2 = [-0.5373\;\;-0.2153],\mathbf{D}_2 = 0.5444.
+\end{matrix}
+\end{equation}
+
+稳态点 3
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,3}=0.7627,\bm{x}_{e,3}=[0.9200\;0.9833]^{T},\bm{y}_{e,3} = 1.0152\\
+\mathbf{A}_3=
+\begin{bmatrix}
+-6.3954 & 2.7645\\
+-0.5816 & -0.7353
+\end{bmatrix},
+\mathbf{B}_3=
+\begin{bmatrix}
+ 2.3826 \\
+ 0.5043
+\end{bmatrix},\\
+\mathbf{C}_3 = [-0.4415\;\;-0.2636],\mathbf{D}_3 = 0.6276.
+\end{matrix}
+\end{equation}
+
+稳态点 4
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,4}=0.6021,\bm{x}_{e,4}=[0.8309\;0.9357]^{T},\bm{y}_{e,4} = 0.9589\\
+\mathbf{A}_4=
+\begin{bmatrix}
+-5.9210 & 2.9168\\
+-0.5477 & -0.6910
+\end{bmatrix},
+\mathbf{B}_4=
+\begin{bmatrix}
+ 2.6572 \\
+ 0.5259
+\end{bmatrix},\\
+\mathbf{C}_4 = [-0.4747\;\;-0.3163],\mathbf{D}_3 = 0.7488.
+\end{matrix}
+\end{equation}
+
+稳态点 5
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,5}=0.4817,\bm{x}_{e,5}=[0.7500\;0.8939]^{T},\bm{y}_{e,5} = 0.9126\\
+\mathbf{A}_5=
+\begin{bmatrix}
+-5.8855 & 3.8048\\
+-0.3627 & -0.7135
+\end{bmatrix},
+\mathbf{B}_5=
+\begin{bmatrix}
+ 2.7233 \\
+ 0.5512
+\end{bmatrix},\\
+\mathbf{C}_5 = [-0.3513\;\;-0.5554],\mathbf{D}_5 = 0.9017.
+\end{matrix}
+\end{equation}
+
+稳态点 6
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,6}=0.3613,\bm{x}_{e,6}=[0.6518\;0.8242]^{T},\bm{y}_{e,6} = 0.8572\\
+\mathbf{A}_6=
+\begin{bmatrix}
+-6.3875 & 4.6360\\
+-0.1635 & -0.5735
+\end{bmatrix},
+\mathbf{B}_6=
+\begin{bmatrix}
+ 2.8739 \\
+ 0.5498
+\end{bmatrix},\\
+\mathbf{C}_6 = [-0.2335\;\;-0.7457],\mathbf{D}_6 = 1.1594.
+\end{matrix}
+\end{equation}
+
+稳态点 7
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,7}=0.2408,\bm{x}_{e,7}=[0.5256\;0.7340]^{T},\bm{y}_{e,7} = 0.7940\\
+\mathbf{A}_7=
+\begin{bmatrix}
+-5.9834 & 4.6915\\
+-0.0585 & -0.6442
+\end{bmatrix},
+\mathbf{B}_7=
+\begin{bmatrix}
+ 2.9473 \\
+ 0.6044
+\end{bmatrix},\\
+\mathbf{C}_7 = [-0.1196\;\;-0.9923],\mathbf{D}_7 = 1.6321.
+\end{matrix}
+\end{equation}
+
+稳态点 8 （慢车状态）
+\begin{equation}
+\begin{matrix}
+\bm{u}_{e,8}=0.1480,\bm{x}_{e,8}=[0.4130\;0.6200]^{T},\bm{y}_{e,8} = 0.7400\\
+\mathbf{A}_8=
+\begin{bmatrix}
+-5.5268 & 3.2972\\
+0.0129 & -0.5627
+\end{bmatrix},
+\mathbf{B}_8=
+\begin{bmatrix}
+ 2.7534 \\
+ 0.6750
+\end{bmatrix},\\
+\mathbf{C}_8 = [-0.1300\;\;-1.1191],\mathbf{D}_8 = 2.4765.
+\end{matrix}
+\end{equation}
+
+仿真所采用的发动机控制系统结构图如图~\ref{fig:5_simarchitecture}所示。
+其中，限制保护功能是本节基于线性变参数系统的设计；而稳态控制功能则是采用文献\cite{Yang2017}中的既有设计。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figure/5_simarchitecture.pdf}
+    \caption{发动机控制系统结构图}
+    \label{fig:5_simarchitecture}
+\end{figure}
+
+对于大涵道比涡扇发动机而言，风扇转速不仅可实时测量，还与发动机的推力参数近乎线性关联，故在此被选作调度参数$\alpha(t)$。
+同时，由于风扇转速作为系统状态随时间的变化是连续的，且该变化速率在现实中是有界的，可知假设\ref{thm:5_assumption_varyslow}是合理的。
+随后，通过分段线性插值可以求得式~(\ref{eq:5_lpvfactors})中的调度参数系数$\beta_i(\alpha)$，进而得到线性变参数系统~(\ref{eq:5_stdmdllpv})。
+仿真中其余的配置参数为$k_A=0.15$，$k_B=0.25$，$\xi_1=1.002$和$\xi_2 = 1$。
+
+图~\ref{fig:5_lpvspd}至~\ref{fig:5_lpvcmprsrmaps}展示了具体的仿真结果。
+图~\ref{fig:5_lpvspd}显示了风扇转速NL和核心机转速NH的变化，其中黑色虚线表示线性变参数系统，而实线表示非线性系统。
+从图中可以看出，风扇转速经过4秒左右实现了指令的跟踪，跟踪过程平滑且无超调。
+另一方面，线性变参数系统与原非线性系统的响应曲线重合度很高，说明前者能够很好地表征后者。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figure/5_lpvspd.pdf}
+    \caption{风扇转速和核心机转速的仿真结果}
+    \label{fig:5_lpvspd}
+\end{figure}
+
+图~\ref{fig:5_lpvwfe2p3}显示了燃油流量、高压涡轮出口总温、高压压气机出口总温和总压的仿真结果。
+燃油流量是发动机系统的控制输入，在整个加速过程中平滑地增加。
+高压涡轮出口总温在加速过程中先是迅速上升并达到限制值，之后保持一段时间后下降，整个过程都没有超过安全限制。
+高压压气机出口总温和总压在加速仿真过程中均平滑地增加。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figure/5_lpvwfe2p3.pdf}
+    \caption{燃油流量，高压涡轮出口温度，高压压气机出口温度和压力的仿真结果}
+    \label{fig:5_lpvwfe2p3}
+\end{figure}
+
+为了监视两个控制功能在仿真过程中的切换情况，图~\ref{fig:5_lpvudot}显示了燃油输入增量和高低选结果。
+在仿真的第1秒内，稳态控制模块输出的燃油输入增量低于限制保护的，低选选中稳态控制模块；
+之后的一段时间里，限制保护模块输出的燃油增量低于稳态控制模块的，切换标记从0跳变至1表示低选选中限制保护功能。
+切换后经过约3.5秒，切换标识跳回0，表示稳态控制模块重新获得了控制权。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figure/5_lpvudot.pdf}
+    \caption{燃油输入增量及其高低选结果}
+    \label{fig:5_lpvudot}
+\end{figure}
+
+除了监视主要参数的变化，闭环系统的稳定性也值得关注。
+就滑模控制方法而言，既要保证滑模状态下的系统稳定性，还要确保系统状态能从初始位置被吸引至滑模面内。
+式~(\ref{eq:5_sysonsldsurf})表示处于滑模状态下的闭环系统动态，其稳定性可由定理~\ref{thm:5_theorem_slidingstable}保证。
+而定理成立的条件之一是线性矩阵不等式~(\ref{eq:5_postivedefinep})存在可行解$\mathbf{P}$。
+在MATLAB LMI工具箱的帮助下\cite{Johan2011YALMIP}, 可以求出以下可行解（$\epsilon$取0.01时）。
+\begin{equation}
+\mathbf{P} =
+\begin{bmatrix}
+ 0.0632 & -0.0107\\
+-0.0107 &  0.4419
+\end{bmatrix}
+\end{equation}
+
+图~\ref{fig:5_lpvsldfun}显示了理想滑模函数的轨迹在限制保护期间单调收敛至0。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figure/5_lpvsldfun.pdf}
+    \caption{滑模函数仿真结果}
+    \label{fig:5_lpvsldfun}
+\end{figure}
+
+图~\ref{fig:5_lpvt42sm}中是高压涡轮出口总温、发动机总进气流量、净推力和喘振裕度（风扇、增压级和高压压气机）的仿真结果。
+这些参数通常无法通过实时测量获得，需要应用模型进行预测。
+然而，这些参数对监视发动机性能至关重要，这从一个侧面反映了建立可靠的发动机数学模型的重要性。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.75\linewidth]{figure/5_lpvt42sm.pdf}
+    \caption{高压涡轮出口温度，发动机进气流量，推力和喘振裕度的仿真结果}
+    \label{fig:5_lpvt42sm}
+\end{figure}
+
+图~\ref{fig:5_lpvcmprsrmaps}中显示了风扇、增压级和高压压气机的部件特性图。
+图中带空心圆的点划线表示发动机共同工作线，而实线则为加速仿真过程中发动机的实际工作轨迹（过渡态加速线）。
+由图可知，发动机从慢车状态到最大状态的加速过程中都留有足够的喘振裕度。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.82\linewidth]{figure/5_lpvcmprsrmaps.jpg}
+    \caption{压气机特性图与工作线}
+    \label{fig:5_lpvcmprsrmaps}
+\end{figure}
+
+\section{基于转子加速度（N-dot）的过渡态控制设计}
+\label{sec:5_transientctrl}
+
+“性能”和“安全”是航空发动机控制过程中最核心的两个考虑。
+所谓“性能”，主要是指发动机应当提供与指令一致的推力，一般由转速控制或压比控制功能负责(推力往往不能直接被测量而常用转速或压比来表征)；而所谓“安全”，是指发动机工作过程中各个参数值都应处于安全范围内，一般由限制保护功能负责。
+
+在前述控制单元设计的章节中，研究的重点正是在转速控制功能和限制保护功能上。
+然而，对上述功能而言，设计控制单元时仅考虑了发动机某个稳定工况的临域范围，并没有考虑发动机在不同工况之间的状态过渡。
+实际上，发动机在状态过渡期间能够安全工作也同样重要，因此在设计控制系统时考虑过渡态控制是十分必要的。
+
+本节围绕航空发动机过渡态控制展开，先在第\ref{sec:5_ndotbg}小节中介绍了相关的研究背景；之后，在第\ref{sec:5_ndotindmthd}小节中针对传统方案存在的问题，借鉴并实现了一种不需要引入微分器的N-dot控制方法；最后，在第\ref{sec:5_ndotsim}小节中通过实际算例验证该方法可行性并归纳了该方法的特点。
+
+\subsection{研究背景}
+\label{sec:5_ndotbg}
+
+过渡态控制的主要目标是，使发动机在规定时间内完成状态的平滑过渡，期间既不发生推力或转速的突变，也不能引起发动机喘振。
+需要指出的是，虽然第\ref{sec:5_lpvdesign}节中的设计也考虑了发动机工况的改变，但该设计与过渡态控制设计的出发点并不相同。
+第\ref{sec:5_lpvdesign}节中的设计是为了保证，在单一控制功能下的各控制单元切换时，闭环控制系统全局稳定。
+该设计并不能保证发动机处于过渡态时的运行安全。
+
+早期的过渡态控制设计主要使用基于油气比计划的开环控制方法\cite{Jaw2005Propulsion}。
+此方法本质上是设定发动机处于过渡态时的供油限制边界，具有简明有效的特点，在工程上的应用也十分广泛\cite{Kong2013extrapolation,Lu2012new,Jiang2005Digital}。
+但毕竟，开环控制在控制精度上不如闭环反馈控制，前者仅仅能起到边界限制作用，而不能主动地设计过渡态性能，比如无法使发动机在环境变化下仍按照相同的速率进行加速。
+随着航空工业的发展，对发动机性能的要求不断提高，行业迫切需要具有更好性能的过渡态控制方法。
+在此背景下，过渡态闭环N-dot控制的思路被提出\cite{Merrill1984role}，并随后得到研究人员持续的关注\cite{H.AustinSpang1999Control,Wang2015PI}，并已应用在诸多航空发动机的控制系统中。
+所谓N-dot控制，即控制发动机的转子加速度，使发动机转速在过渡态过程中也能被细致地控制，从而有效提升过渡态品质。
+
+文献\cite{Jaw2009Aircraft}中详细地介绍了一种常见的N-dot控制方法（下文中称作直接N-dot控制），其主要思路可用图\ref{fig:5_ndotclassic}表示。
+图中，通过引入微分器可以获得N-dot测量值，进而使用负反馈结构控制N-dot使其跟随指令。
+需要注意的是，微分器的引入使得系统带宽增大，而带宽增大则意味着系统对高频输入更加敏感\cite{Yang2016}。
+对高频输入敏感的特点是该N-dot控制方法在工程应用中的最大阻碍，因为此特点不仅容易使系统受到高频测量噪声（工程应用中很普遍）的影响\cite{Ahrens2004Output,Vasiljevic2007Differentiation}，还有可能使系统因未建模高频动态而不稳定\cite{Dang2015}。
+可见，引入微分器的代价是不可小觑的。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.6\textwidth]{figure/5_ndotclassic.jpg}
+    \caption{直接N-dot控制方法结构简图}
+    \label{fig:5_ndotclassic}
+\end{figure}
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figure/5_ndotindirect.jpg}
+    \caption{间接N-dot控制方法结构简图}
+    \label{fig:5_ndotindirect}
+\end{figure}
+  
+针对N-dot控制方法中引入微分器所带来的不良影响，文献\cite{MacIsaac2011Gas}提出一种不需要引入微分器的N-dot控制方法：间接N-dot控制。
+该方法使用积分器将N-dot指令转化为转速指令，随后通过转速控制间接地实现N-dot控制。
+在公开资料中，关于间接N-dot控制的介绍十分有限，文献\cite{MacIsaac2011Gas}也只是提供了简单的描述和示意，并未给出该方法的具体实现。
+在此背景下，笔者开展了间接N-dot控制方法的研究。
+
+\subsection{间接N-dot控制方法设计}
+\label{sec:5_ndotindmthd}
+
+考虑到微分器在系统闭环中的不利影响，间接N-dot控制方法选择反其道而行：不再通过对转速作微分运算来获得转子加速度，而是逆向对转子加速度指令进行积分运算而求得转速指令。
+当系统跟踪此转速指令时，即是通过转速控制间接地实现N-dot控制。
+间接N-dot控制的结构简图如图\ref{fig:5_ndotindirect}所示，可以看出，此闭环回路实质上与转速控制的闭环回路一致。
+而由于不再需要引入微分器，间接N-dot控制从源头上规避了微分器对闭环系统的不利影响。
+
+然而，在具体实现上述设计的过程中会发现，虽然规避了微分器的使用，但是在应用积分器的同时也引入了新的问题。
+关于引入的新问题，可以从使用需求的角度进行分析。
+首先，当发动机刚进入过渡态时，需要激活积分器并重置积分初值，且初值应为当前时刻转速；
+随后，当发动机处于过渡态中，积分器应当连续工作，对加速度指令信号进行积分，从而获得N-dot控制下的转速指令；
+最后，由于控制系统中各功能回路的切换是由高低选逻辑决定的\cite{H.AustinSpang1999Control,Jaw2009Aircraft}，故在发动机退出过渡态后，应当冻结积分器，并将N-dot控制回路的输出置为最大（小）值，避免回路被低（高）选。
+可以看出，由于间接N-dot控制方法中积分器的应用情景比较复杂，单独使用积分器并不能满足实际需求，有必要为其设计特定的重置、冻结等工作逻辑。
+
+以N-dot加速控制设计为例，考虑重置和冻结逻辑后，经过积分得出的转速指令${\rm NL_{cmd}}(t)$可用式~(\ref{eq:5_ndotlogic})表示。
+\begin{equation}
+{\rm NL_{cmd}}(t)=\begin{cases}
+{\rm{NL}}(t_0) & \text{\rm{if}}\; t = t_0\\
+{\rm NL}(t_0)+\int_{t_0}^{t} {\rm d} \Big [ {\rm {NL_{cmd}}}(t) \Big ] & \text{\rm{if}}\; t_0 < t < t_1\\
+{\rm NL_{max}}  & \text{ \rm{if} }\; t \geq t_1\\
+\end{cases}
+\label{eq:5_ndotlogic}
+\end{equation}
+其中，$t_0$表示某一次进入加速状态的时刻，$t_1$表示该次加速过程的退出时刻，d[${\rm {NL_{cmd}}}(t)$]表示加速度指令，${\rm NL_{max}}$表示一个很大的正数（用于使N-dot控制回路在积分器冻结时避免被低选选中）。
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.52\linewidth]{figure/5_ndotprocess.pdf}
+    \caption{一次完整的加速过程}
+    \label{fig:5_ndotprocess}
+\end{figure}
+图\ref{fig:5_ndotprocess}反映了一次完整的加速过程，其中N-dot指令由相应的控制计划决定。
+$t_0$时刻以前，发动机处于稳态，由式~(\ref{eq:5_ndotlogic})可知此时用于加速的转速指令为$\rm{NL_{max}}$，N-dot控制回路因此不会被低选选中；
+当开始一个新的加速周期时，发动机自$t_0$时刻进入过渡态，此时用于加速的转速指令为当前实际转速NL$(t_0)$，这意味着积分器被激活并以NL($t_0$)为初值开始积分运算；
+发动机在$t_0$与$t_1$时刻之间处于加速过程中，积分器持续对加速度指令进行积分，积分结果即为间接N-dot控制对应的转速指令；
+发动机在$t_1$时刻退出过渡态，用于加速的转速指令回到$\rm{NL_{max}}$，间接N-dot加速控制回路在高低选切换逻辑下退出工作。
+至于何时进入（退出）过渡态，工程上则有十分成熟的判别逻辑，因为不是本小节的重点而不在此处展开。
+此外，间接N-dot控制在减速情况下的实现与加速情况类似，这里也不赘述。
+
+\subsection{仿真研究}
+\label{sec:5_ndotsim}
+
+文献\cite{Dang2015}中提到，N-dot控制在理想情况下具有较好的指令跟踪效果，而在考虑转速传感器动态时却出现了严重的震荡，需要重新修改控制器参数。
+诚然，理想条件利于问题的分析和处理，但在实际工程中，传感器测量噪声和传感器动态等未建模动态对闭环系统性能的影响是不可忽略的。
+为了验证上述间接N-dot控制方法在实际工程中的有效性，本小节设计了考虑传感器测量噪声和未建模动态的仿真实验。
+继续以大涵道比涡扇发动机作为被控对象，在现有稳态控制功能和限制保护功能的基础上，设计增益调度的PI控制单元作为过渡态控制结构。
+过渡态控制功能中包括传统的直接N-dot控制和上述间接N-dot控制两种方案，可根据不同的仿真情景切换选择。
+为了便于分析，不妨将加速过程的N-dot指令定为常量800rpm/s。
+
+\begin{itemize}
+    \item {\bf 考虑未建模动态的情况}
+\end{itemize}
+
+在闭环系统中，加入$G(s)=1/(0.02s+1)$的转速传感器动态。
+从发动机慢车状态开始仿真，两秒后快推油门杆到最大状态，可以分别得到N-dot控制效果，转速参数响应和燃油流量如图\ref{fig:5_ndotuncertain}。
+\begin{figure}[!ht]
+    \centering
+    \begin{tabular}{c}
+        \subfigure[N-dot仿真跟踪结果]{
+            \label{fig:5_ndotuncertaina}
+            \includegraphics[width=.7\textwidth]{figure/5_ndotuncertaina.pdf}
+        } \\
+        \subfigure[转速仿真结果]{
+            \label{fig:5_ndotuncertainb}
+            \includegraphics[width=.7\textwidth]{figure/5_ndotuncertainb.pdf}
+        } \\
+        \subfigure[燃油流量仿真结果]{
+            \label{fig:5_ndotuncertainc}
+            \includegraphics[width=.7\textwidth]{figure/5_ndotuncertainc.pdf}
+        } \\
+    \end{tabular}
+    \caption{考虑未建模动态时的N-dot控制仿真结果}
+    \label{fig:5_ndotuncertain}
+\end{figure} 
+ 
+图\ref{fig:5_ndotuncertaina}中可以看出，在考虑未建模动态下应用直接N-dot控制方法会引发明显的震荡，而应用间接N-dot控制方法则取得了良好的效果，没有可见震荡。
+虽然两种方法体现在N-dot参数上的区别明显，但就转速和燃油流量而言，如图\ref{fig:5_ndotuncertainb}和\ref{fig:5_ndotuncertainc}，两者只有细微的差别。
+图中可以看出直接N-dot控制方法的燃油流量也出现了震荡。
+
+\begin{itemize}
+    \item {\bf 考虑测量噪声的情况}
+\end{itemize}
+
+闭环系统中，在发动机模型输出处加入默认噪声模块代表传感器测量噪声。
+从发动机慢车状态开始仿真，两秒后快推油门杆到最大状态，可以分别得到N-dot控制效果，转速响应和燃油流量如图\ref{fig:5_ndotnoise}。
+\begin{figure}[!ht]
+    \centering
+    \begin{tabular}{c}
+        \subfigure[N-dot仿真跟踪结果]{
+            \label{fig:5_ndotnoisea}
+            \includegraphics[width=.7\textwidth]{figure/5_ndotnoisea.pdf}
+        } \\
+        \subfigure[转速仿真结果]{
+            \label{fig:5_ndotnoiseb}
+            \includegraphics[width=.7\textwidth]{figure/5_ndotnoiseb.pdf}
+        } \\
+        \subfigure[燃油流量仿真结果]{
+            \label{fig:5_ndotnoisec}
+            \includegraphics[width=.7\textwidth]{figure/5_ndotnoisec.pdf}
+        } \\
+    \end{tabular}
+    \caption{考虑测量噪声时的N-dot控制仿真结果}
+    \label{fig:5_ndotnoise}
+\end{figure} 
+
+图\ref{fig:5_ndotnoisea}中可以看出，加速过程中，应用间接N-dot控制方法的加速度曲线较为光滑，受噪声影响小；而在加速过程以外两者N-dot值基本一致，因为两个控制系统的稳态控制部分完全一致。
+同样地，两种N-dot控制方法就转速和燃油流量而言只有细微的差别。
+图\ref{fig:5_ndotnoisec}中可以看出直接N-dot控制方法的燃油流量出现了轻微的震荡。
+
+由于引入微分器使得系统对测量噪声和未建模动态十分敏感，N-dot控制方法在工程应用中受到束缚。
+而间接N-dot控制的提出，给N-dot控制的工程应用开辟了新的道路。
+在已有文献尚未给出实现方法的情况下，本节具体实现了间接N-dot控制，设计了间接N-dot控制引入积分器的算法，并使用CF6模型进行仿真验证。
+仿真结果表明，相比传统的N-dot控制方法，间接N-dot控制对高频测量噪声不敏感，且在有未建模动态时具有更好的鲁棒性。
+
+\section{基于在线估计器的温度传感器补偿算法}
+\label{sec:5_stestimator}
+
+航空发动机控制过程中会应用各类传感器对其转子转速、气路温度和压力等参数进行测量。
+因此，在许多控制系统相关的研究中都会默认发动机的系统状态和输出参数是已知的。
+然而在实际工程中，有些传感器受自身属性所限并不能及时准确地反映被测参数的真实值。
+比如，用于测量温度的热电偶传感器需要铠装保护使其免于烧损，但增加该保护却会造成温度测量的响应过程缓慢，测量信号甚至无法供控制系统使用\cite{H.AustinSpang1999Control}。
+在此背景下，本节对如何补偿温度传感器测量信号展开了研究。
+
+对于控制过程存在参数不确定性的情况，自适应控制是一类十分有效的方法。
+自适应控制能够通过在线自调节或估计等机制，一定程度上适应参数的未知变化，从而提升控制性能和品质。
+大体上讲，有关自适应控制的设计可以分成两个大类。
+其中一类是模型参考自适应控制(Model-Reference Adaptive Control)，另一类被称作自调节控制(Self-Turning Control)。
+前者需要引入参考模型作为基准，并以消除实际与基准之间的偏差为目的进行参数调节\cite{Astroem2013Adaptive,Goodwin2014Adaptive}；而后者则是设计估计器对未知参数进行直接估计。
+需要指出的是，模型参考自适应控制的调参律与控制律之间相互影响，需要协同设计；而自调节控制的估计律和控制律却是相对独立的\cite{Slotine2005Applied}。
+由于不希望补偿算法影响既有控制律设计，本节选择自调节控制，即基于在线估计器的自适应控制方法。
+
+\subsection{在线估计器设计}
+
+考虑发动机在某工况附近的系统动态，关于温度的输出方程可以用式~(\ref{eq:5_stcsysout})表示。
+\begin{equation}
+\bm{y}(t) = \mathbf{C}\cdot \bm{x}(t)+ \mathbf{D} \cdot u(t) + \bm{\omega}(t)
+\label{eq:5_stcsysout}
+\end{equation}
+其中，标量$u(t)$是系统输入，向量$\bm{x}(t)$和$\bm{y}(t)\in\mathbb{R}^{m}$分别表示系统状态和输出；$\mathbf{C}$和$\mathbf{D}$表示与系统输出相关的状态空间矩阵；而$\bm{\omega}(t)\in\mathbb{R}^{m}$表示因传感器未知动态而引入的输出不确定性。
+
+由于$\bm{\omega}(t)$的未知性，系统输出$\bm{y}(t)$无法根据已知的系统状态$\bm{x}(t)$和输入$u(t)$算出，这对后续的控制设计是十分不利的。
+本小节的目标即是设计在线估计器对未知项$\bm{\omega}(t)$进行估算，从而获得系统输出$\bm{y}(t)$的可用估计值。
+
+为了对$\bm{\omega}(t)$获得准确的估计，这里同时考虑系统输出的实际测量值和的式~(\ref{eq:5_stcsysout})的标称系统。
+
+由于响应缓慢的原因，温度传感器的测量值无法直接供控制系统使用，不妨将各个传感器看作具有如下形式的一阶惯性环节。
+\begin{equation}
+   \bm{\Lambda}_{\rm{s}} \cdot \bm{\dot y}_{\rm{s}}(t)=-\bm{y}_{\rm{s}}(t)+\bm{y}(t), \;
+\bm{\Lambda}_{\rm{s}} = \begin{bmatrix}
+\tau_1 & \cdots  & 0 \\
+ \vdots & \ddots  & \vdots \\
+ 0 & \cdots & \tau_m
+\end{bmatrix}
+\label{eq:5_stcdyn4sensor}
+\end{equation}
+其中，$\bm{y}_{\rm{s}}(t)\in\mathbb{R}^{m}$为系统输出$\bm{y}(t)$的测量值，$\tau_i$为第$i$个传感器的时间常数。
+
+式~(\ref{eq:5_stcsysout})对应的标称系统可以写作：
+\begin{equation}
+    \bm{y}^{*}(t)=\mathbf{C}\cdot \bm{x}^{*}(t)+\mathbf{D}\cdot u(t)\\
+\label{eq:5_stcsysoutnom}
+\end{equation}
+将式~(\ref{eq:5_stcsysoutnom})代入式~(\ref{eq:5_stcsysout})可得：
+\begin{equation}
+   \bm{y}(t)=\bm{y}^{*}(t)+\mathbf{C}\cdot \Big [ \bm{x}(t)-\bm{x}^{*}(t) \Big ]+\bm{\omega}(t)
+\label{eq:5_stcsysoutnom2}
+\end{equation}
+式~(\ref{eq:5_stcsysoutnom2})可以理解为，将系统输出$\bm{y}(t)$分解成标称输出$\bm{y}^{*}(t)$和输出偏差余项。
+若将式~(\ref{eq:5_stcsysoutnom2})代入式~(\ref{eq:5_stcdyn4sensor})，则可得式~(\ref{eq:5_stcsys})。
+\begin{equation}
+      \bm{\Lambda}_{\rm{s}} \cdot \bm{\dot y}_{\rm{s}}(t)=-\bm{y}_{\rm{s}}(t)+\bm{y}^{*}(t)+\mathbf{C}\cdot \Big [ \bm{x}(t)-\bm{x}^{*}(t) \Big ]+\bm{\omega}(t)
+\label{eq:5_stcsys}
+\end{equation}
+
+为了估计未知参数，首先需要将其与已知信息联系起来，并据此建立估计模型。
+系统~(\ref{eq:5_stcsys})看似能够建立这样的联系，但却由于包含微分运算而在工程上并不实用。
+由于测量信号总会存在噪声，工程应用中应当尽量避免对测量信号做微分运算。
+考虑在系统~(\ref{eq:5_stcsys})中加入滤波器以消除测量信号的微分项$\bm{\dot y}_{\rm{s}}(t)$，比如，对等式~(\ref{eq:5_stcsys})的两边同乘以：
+\begin{equation}
+\mathbf{H}=(s{\bm{I}}+\bm{\Lambda}_{\rm{f}})^{-1}
+\label{eq:5_stcfilter}
+\end{equation}
+其中$s$为拉普拉斯复变量算子，$\bm{\Lambda}_{\rm{f}}$为已知的$m$维对角常数矩阵。
+两边同乘以$\mathbf{H}$后得到式~(\ref{eq:5_stcsys2})。
+\begin{equation}
+    \mathbf{Y}(t)= \mathbf{H}\cdot\bm{a}(t)
+\label{eq:5_stcsys2}
+\end{equation}
+其中，
+\begin{equation}
+\begin{aligned}
+   &\mathbf{Y}(t)=\Big [ {\bm{\Lambda}}_{\rm{s}}+\mathbf{H}(\bm{I}-\bm{\Lambda}_{\rm{s}}\bm{\Lambda}_{\rm{f}})\Big ] \bm{y}_{\rm{s}}(t)-\mathbf{H} \cdot \bm{y}^{*}(t)\\
+   &\bm{a}(t)=\mathbf{C}\cdot \Big [ \bm{x}(t)-\bm{x}^{*}(t) \Big ]+\bm{\omega}(t)\\
+\label{eq:5_stcsys3}
+\end{aligned}
+\end{equation}
+式~(\ref{eq:5_stcsys3})中的$\bm{a}(t)$和未知参数$\bm{\omega}(t)$直接关联，可将其选作估计器的待估参数。
+另从式~(\ref{eq:5_stcsysoutnom2})中也可看出，$\bm{a}(t)$恰是输出的偏差$\bm{y}(t)-\bm{y}^{*}(t)$。
+假设系统~(\ref{eq:5_stcsysout})与其标称系统~(\ref{eq:5_stcsysoutnom})的动态相似，则可认为待估参数$\bm{a}(t)$随时间变化较慢。
+
+$\bm{a}(t)$的估计值可以记作：
+\begin{equation}
+\bm{\hat{a}}(t)=\mathbf{C}\cdot \Big [ \bm{x}(t)-\bm{x}^{*}(t) \Big ]+{\bm{\hat \omega}}(t)
+\label{eq:5_stcestres}
+\end{equation}
+将待估参数的估计值$\bm{\hat{a}}(t)$代入估计模型~(\ref{eq:5_stcsys2})，可以得到$\mathbf{Y}(t)$的估计值：
+\begin{equation}
+   {\mathbf{\hat Y}}(t)= \mathbf{H}\cdot\bm{\hat a}(t)
+\label{eq:5_stcestres2}
+\end{equation}
+
+按式~(\ref{eq:5_stcestres3})定义估计误差$\bm{e}(t)$，用于评价当前的估计值$\bm{\hat{a}}(t)$是否准确。
+\begin{equation}
+    \bm{e}(t)= {\mathbf{\hat Y}}(t)-\mathbf{Y}(t)=\mathbf{H}\cdot\bm{\tilde{a}}(t)
+\label{eq:5_stcestres3}
+\end{equation}
+其中，$\bm{\tilde{a}(t)}=\bm{\hat{a}}(t)-\bm{a}(t)$，表示待估参数$\bm{a}(t)$的估计偏差。
+
+随后，应用一种称作“梯度法估计(Gradient Estimation)”的技术\cite{Slotine2005Applied,Anderson1977Exponential,Morgan1977uniform}迭代地对待估参数$\bm{a}(t)$进行估计。
+定义估计律如式~(\ref{eq:5_stcestlaw})：
+\begin{equation}
+    \bm{\dot {\hat a}}(t)= -k \cdot \mathbf{H}^{T}\bm{e}(t)
+\label{eq:5_stcestlaw}
+\end{equation}
+其中，估计增益$k$是一个正数。
+以下定理能够证明，应用估计律~(\ref{eq:5_stcestlaw})能使式~(\ref{eq:5_stcestres3})中定义的估计误差$\bm{e}(t)$收敛至零。
+
+\begin{theorem}
+\label{thm:5_theorem_stcestonline}
+\cite{Slotine2005Applied}
+考虑估计模型~(\ref{eq:5_stcsys2})和式~(\ref{eq:5_stcestres3})中定义的估计误差$\bm{e}(t)$。
+如果应用估计律~(\ref{eq:5_stcestlaw})，那么此估计器全局渐近稳定，且在有限时间内估计误差$\bm{e}(t)\rightarrow 0$。
+\proof
+选择以下李雅普诺夫函数：
+\begin{equation}
+    V(t) = \bm{\tilde{a}}^T(t)\cdot \bm{\tilde{a}}(t)
+\label{eq:5_stcthm1}
+\end{equation}
+将$V(t)$对时间求导可得：
+\begin{equation}
+    \dot{V}(t) = 2\bm{\tilde{a}}^T(t)\cdot \bm{\dot{\tilde{a}}}(t)=-2k\cdot\bm{\tilde{a}}^T(t)\cdot \mathbf{H}^T\mathbf{H} \cdot \bm{\tilde{a}}(t) \leq 0
+\label{eq:5_stcthm2}
+\end{equation}
+易知，当且仅当$\bm{\tilde{a}}(t)=0$时有$\dot{V}(t)=0$。
+因此，估计器全局渐近稳定，且在有限时间内$\bm{\tilde{a}}(t)\rightarrow 0$，进而有估计误差$\bm{e}(t)\rightarrow 0$。
+\qed
+\end{theorem}
+
+当得到$\bm{a}(t)$的估计值$\bm{\hat{a}}(t)$以后，可根据式~(\ref{eq:5_stcestres})直接求出系统输出方程~(\ref{eq:5_stcsysout})中的未知项$\bm{\omega}(t)$。
+
+\subsection{仿真研究}
+
+本小节以温度限制保护为例对上述设计进行仿真研究。
+考虑大涵道比涡扇发动机模型的2个系统状态（高、低压转子转速），1个输入（燃油流量）和1个输出（高压涡轮出口温度）。
+仍采用表~\ref{tab:5_lpvnominalpara}中的工况作为参考平衡点，将以上4个参数与平衡点参数分别作差，之后再以平衡点为参照进行无量纲处理：控制输入$\bm{u}(t)$和系统输出$\bm{y}(t)$分别是无量纲化的燃油流量和高压涡轮出口总温；系统状态$x_1(t)$、$x_2(t)$分别是无量纲化的风扇转速、核心机转速。
+
+在海平面标准大气环境下，对表~\ref{tab:5_lpvnominalpara}工况下的发动机模型$(x_1 = 1, x_2 = 1)$进行线性化，可得到状态空间矩阵如下：
+\begin{equation}
+\begin{matrix}
+\mathbf{A}=
+\begin{bmatrix}
+-8.777 & 3.2554\\
+-0.7186 & -1.9474
+\end{bmatrix},\
+\mathbf{B}=
+\begin{bmatrix}
+ 2.1078 \\
+ 0.5401
+\end{bmatrix}\\
+\mathbf{C} = [-0.5968 \ \  0.1188],\
+\mathbf{D} = 0.4658
+\end{matrix}
+\label{eq:5_stcabcd}
+\end{equation}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.4\linewidth]{figure/5_ststrct.pdf}
+    \caption{在线估计器的仿真原理图}
+    \label{fig:5_ststrct}
+\end{figure}
+在线估计器的仿真原理图如图~\ref{fig:5_ststrct}所示。
+图中，发动机的输入为无量纲化的燃油流量$u(t)$。
+传感器用于测量发动机输出$\bm{y}(t)$，测量过程可能存在噪声（噪声幅值小于0.1），测量的结果为$\bm{y}_{\rm{s}}(t)$。
+根据发动机输入$u(t)$、可测的发动机状态$\bm{x}(t)$和输出测量值$\bm{y}_{\rm{s}}(t)$，在线估计器能够算出发动机输出$\bm{y}(t)$的估计值。
+为了说明设计估计器过程引入滤波器的重要性，仿真中加入了采用超前校正环节的估计方案做参照。
+
+其余仿真参数为$\tau = 1$，$\lambda_{\rm{f}} = 4$和$k=400$。
+仿真计划如图~\ref{fig:5_stinput}所示，燃油输入先后包含了一组阶跃信号和一组斜坡信号。
+仿真结果见图~\ref{fig:5_stoutputa}至图~\ref{fig:5_sterror}。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figure/5_stinput.pdf}
+    \caption{归一化的燃油流量输入}
+    \label{fig:5_stinput}
+\end{figure}
+
+图~\ref{fig:5_stoutputa}显示了无测量噪声时的温度估计结果，图~\ref{fig:5_stoutputb}则是有噪声时的估计结果。
+图中，实线和虚线分别表示发动机实际的$T_{45}$温度及其测量结果。
+点划线表示采用本节所设计自调节估计器时的$T_{45}$估计值，细点线表示采用超前校正环节的估计结果。
+从图~\ref{fig:5_stoutputa}中可以看出，$T_{45}$的测量值比实际值有明显的滞后，同时，采用两种估计方案都能取得满意的温度估计结果。
+在图~\ref{fig:5_stoutputb}中，由于没有滤波器设计，采用超前校正环节的估计器受到噪声的影响十分严重，然而，在相同噪声的影响下，应用自调节估计器仍然能得到满意的温度估计结果。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figure/5_stoutputa.pdf}
+    \caption{无噪声时的归一化温度输出}
+    \label{fig:5_stoutputa}
+\end{figure}
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figure/5_stoutputb.pdf}
+    \caption{有噪声时的归一化温度输出}
+    \label{fig:5_stoutputb}
+\end{figure}
+
+图~\ref{fig:5_sterror}展示了所设计估计器的估计误差。
+从图中可以看出，无论输入是阶跃还是斜坡信号，在线估计器的估计误差总能在有限时间内收敛至零，与定理~\ref{thm:5_theorem_stcestonline}所述一致。
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figure/5_sterror.pdf}
+    \caption{在线估计器的估计误差}
+    \label{fig:5_sterror}
+\end{figure}
+
+\subsection{本章小节}
+未完待续
+
+\bibliographystyle{plain}
+\bibliography{bibs}
+\end{document}
