@@ -4,7 +4,7 @@ model MFSYS7_test
   parameter SI.Time pulse_time = 0.3;
   parameter SI.Frequency sin_freq = 1;
   parameter SI.Current sin_amp = 0.003;
-  CL4CSM.Hydro_Mech_Library.Examples.MFSYS7.MFSYS7_export exportfmu annotation(
+  MFSYS7.MFSYS7_export exportfmu annotation(
     Placement(visible = true, transformation(origin = {10, -8}, extent = {{-18, -18}, {18, 18}}, rotation = 0)));
 
 equation
