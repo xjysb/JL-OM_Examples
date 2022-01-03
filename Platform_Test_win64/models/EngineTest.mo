@@ -26,17 +26,18 @@ model EngineTest
   Modelica.Blocks.Interfaces.RealInput Flag annotation(
     Placement(visible = true, transformation(origin = {-100, -80}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {-100, -82}, extent = {{-20, -20}, {20, 20}}, rotation = 0)));
   Modelica.Blocks.Interfaces.RealOutput NGG annotation(
-    Placement(visible = true, transformation(origin = {100, 70}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {100, 80}, extent = {{-20, -20}, {20, 20}}, rotation = 0)));
+    Placement(visible = true, transformation(origin = {98, 80}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {98, 78}, extent = {{-18, -18}, {18, 18}}, rotation = 0)));
   Modelica.Blocks.Interfaces.RealOutput N1 annotation(
-    Placement(visible = true, transformation(origin = {100, 30}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {100, 28}, extent = {{-20, -20}, {20, 20}}, rotation = 0)));
+    Placement(visible = true, transformation(origin = {98, 40}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {98, 40}, extent = {{-18, -18}, {18, 18}}, rotation = 0)));
   Modelica.Blocks.Interfaces.RealOutput T5 annotation(
-    Placement(visible = true, transformation(origin = {100, -10}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {100, -28}, extent = {{-20, -20}, {20, 20}}, rotation = 0)));
+    Placement(visible = true, transformation(origin = {98, 0}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {99, 1}, extent = {{-19, -19}, {19, 19}}, rotation = 0)));
   Modelica.Blocks.Interfaces.RealOutput P3 annotation(
-    Placement(visible = true, transformation(origin = {100, -50}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {100, -80}, extent = {{-20, -20}, {20, 20}}, rotation = 0)));
+    Placement(visible = true, transformation(origin = {98, -40}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {98, -38}, extent = {{-18, -18}, {18, 18}}, rotation = 0)));
   Real EngIn[5] = {T2, P2, Wf, VSV, Flag};
-//  Real EngIn[5] = {288.15, 101.325, 0.5, 0, 1};
+  //  Real EngIn[5] = {288.15, 101.325, 0.5, 0, 1};
   Real EngOut[8];
-
+  Modelica.Blocks.Interfaces.RealOutput P5 annotation(
+    Placement(visible = true, transformation(origin = {98, -78}, extent = {{-20, -20}, {20, 20}}, rotation = 0), iconTransformation(origin = {99, -77}, extent = {{-19, -19}, {19, 19}}, rotation = 0)));
 initial algorithm
   fcninit();
   N1 := 0;
@@ -53,6 +54,7 @@ algorithm
     N1 := EngOut[6];
     T5 := EngOut[4];
     P3 := EngOut[2];
+    P5 := EngOut[3];
   end when;
 //[ Error P3 P5 T5 NGG N1 NPT Pwr ]
   annotation(
